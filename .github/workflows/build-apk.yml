@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -25,3 +25,25 @@ jobs:
         with:
           name: blank-app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Restore release signing key
+        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      - name: Build signed release APK
+        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
+        run: gradle --no-daemon assembleRelease
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Publish APK to GitHub Releases
+        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk blank-app.apk
+          gh release create "v${GITHUB_RUN_NUMBER}" blank-app.apk --title "Blank App v1.0.${GITHUB_RUN_NUMBER}" --notes "Android app update"
+        env:
+          GH_TOKEN: ${{ github.token }}
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
