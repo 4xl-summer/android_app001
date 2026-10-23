@@ -3,6 +3,7 @@ plugins { id("com.android.application") }
 android {
     namespace = "com.example.blankapp"
     compileSdk = 35
+    buildFeatures { buildConfig = true }
 
     defaultConfig {
         applicationId = "com.example.blankapp"
